@@ -1,0 +1,2404 @@
+Implement a Java class that satisfies the following interface:
+
+[Interface Specification]
+
+Your implementation should pass the following test case:
+
+[Test Case]
+
+Provide only the Java code for the class implementation, without any additional explanations or comments.
+
+
+
+
+1.
+
+def interfaceSpec = """Bag {
+    add(java.lang.Object)->void
+    count(java.lang.Object)->int
+    remove(java.lang.Object)->void
+    contains(java.lang.Object)->boolean
+    size()->int
+}"""
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'pushPop': sheet(p1: 'Bag', p2: "hello", p3: "world") {
+            row '', 'create', '?p1'
+            row '', 'add', 'A1', '?p2'
+            row '', 'add', 'A1', '?p3'
+            row '', 'add', 'A1', '?p2'
+            row 2, 'size', 'A1'
+            row 2, 'count', 'A1', '?p2'
+            row 1, 'count', 'A1', '?p3'
+            row false, 'contains', 'A1', "engineering"
+            row '', 'remove', 'A1', '?p2'
+            row 1, 'count', 'A1', '?p2'
+        }
+]
+    
+without: 
+import java.util.ArrayList;
+import java.util.List;
+
+public class BagImpl implements Bag {
+   private List<Object> items = new ArrayList<>();
+
+   @Override
+   public void add(Object item) {
+       items.add(item);
+   }
+
+   @Override
+   public int count(Object item) {
+       return (int) items.stream().filter(i -> i.equals(item)).count();
+   }
+
+   @Override
+   public void remove(Object item) {
+       items.removeIf(i -> i.equals(item));
+   }
+
+   @Override
+   public boolean contains(Object item) {
+       return items.contains(item);
+   }
+
+   @Override
+   public int size() {
+       return items.size();
+   }
+}
+
+with LASSO and with/without Judge LLM:
+package com.ripplargames.engine.util.collections;
+
+import java.util.HashMap;
+import java.util.Map;
+
+public class Bag<T> {
+   private final Map<T, Integer> map = new HashMap<>();
+   private int countAll;
+
+   public void add(T t) {
+       add(t, 1);
+   }
+
+   public void add(T t, int count) {
+       int current = countFor(t);
+       map.put(t, current + count);
+       countAll += count;
+   }
+
+   public void remove(T t) {
+       add(t, -1);
+   }
+
+   public void remove(T t, int count) {
+       add(t, -count);
+   }
+
+   public boolean contains(T t) {
+       return countFor(t) > 0;
+   }
+
+   public int size() {
+       return map.size();
+   }
+
+   public int countFor(T t) {
+       Integer count = map.get(t);
+       return (count == null) ? 0 : count;
+   }
+}
+
+        
+2.
+
+def interfaceSpec = """Base64{decode(byte[])->byte[]}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testDecode': sheet(base64:'Base64', p2:'dXNlcjpwYXNz'.getBytes()) {
+            row  '',    'create', '?base64'
+            row "user:pass".getBytes(),  'decode',   'A1',     '?p2'
+        },
+        'testDecode_padding': sheet(base64:'Base64', p2:'SGVsbG8gV29ybGQ='.getBytes()) {
+            row  '',    'create', '?base64'
+            row "Hello World".getBytes(),  'decode',   'A1',     '?p2'
+        }
+]
+without:
+public class Base64 {
+   public byte[] decode(byte[] input) {
+       // Implement Base64 decoding here
+       return java.util.Base64.getDecoder().decode(input);
+   }
+}
+
+with:
+public class Base64 {
+   private static final byte EQ = '=';
+
+   private static final char[] BASE_64 = { 
+           'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 
+           'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 
+           'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 
+           'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 
+           'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n', 
+           'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 
+           'w', 'x', 'y', 'z', '0', '1', '2', '3', 
+           '4', '5', '6', '7', '8', '9', '+', '/',
+           };
+   
+   private static final byte[] BASE_64_REVERSE;
+   
+   static {
+       int maxIndex = -1;
+       for (int i = 0; i < BASE_64.length; i++) {
+           int c = BASE_64[i];
+           if (c > maxIndex) {
+               maxIndex = c;
+           }
+       }
+       
+       byte[] reverse = new byte[maxIndex + 1];
+       for (int i = 0; i < BASE_64.length; i++) {
+           reverse[BASE_64[i]] = (byte) i;
+       }
+       
+       BASE_64_REVERSE = reverse;
+   }
+
+   public byte[] decode(byte[] src) {
+       if (src.length % 4 != 0) {
+           throw new IllegalArgumentException();
+       }
+       
+       int len = src.length * 6 / 8;
+       if (src.length - 2 >= 0 && src[src.length - 2] == EQ) {
+           len -= 2;
+       } else if (src.length - 1 >= 0 && src[src.length - 1] == EQ) {
+           len -= 1;
+       }
+       
+       byte[] dest = new byte[len];
+       for (int i = 0, j = 0; i < src.length; i += 4, j += 3) {
+           byte t1 = BASE_64_REVERSE[src[i]];
+           byte t2 = BASE_64_REVERSE[src[i + 1]];
+           byte t3 = src[i + 2] == EQ ? -1 : BASE_64_REVERSE[src[i + 2]];
+           byte t4 = src[i + 3] == EQ ? -1 : BASE_64_REVERSE[src[i + 3]];
+           
+           if (t3 == -1) {
+               dest[j] = (byte) (((t1 & 0b00111111) << 2) | ((t2 >>> 4) & 0b00000011));
+           } else if (t4 == -1) {
+               dest[j] = (byte) (((t1 & 0b00111111) << 2) | ((t2 >>> 4) & 0b00000011));
+               dest[j + 1] = (byte) (((t2 & 0b00001111) << 4) | ((t3 >>> 2) & 0b00001111));
+           } else {
+               dest[j] = (byte) (((t1 & 0b00111111) << 2) | ((t2 >>> 4) & 0b00000011));
+               dest[j + 1] = (byte) (((t2 & 0b00001111) << 4) | ((t3 >>> 2) & 0b00001111));
+               dest[j + 2] = (byte) (((t3 & 0b00000011) << 6) | (t4 & 0b00111111));
+           }
+       }
+       
+       return dest;
+   }
+}
+
+3.
+
+def interfaceSpec = """Base64{encode(byte[])->byte[]}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testEncode': sheet(base64:'Base64', p2:"user:pass".getBytes()) {
+            row  '',    'create', '?base64'
+            row 'dXNlcjpwYXNz'.getBytes(),  'encode',   'A1',     '?p2'
+        },
+        'testEncode_padding': sheet(base64:'Base64', p2:"Hello World".getBytes()) {
+            row  '',    'create', '?base64'
+            row 'SGVsbG8gV29ybGQ='.getBytes(),  'encode',   'A1',     '?p2'
+        }
+]
+without:
+import java.util.Base64;
+
+public class Base64Impl implements Base64 {
+   @Override
+   public byte[] encode(byte[] input) {
+       return Base64.getEncoder().encode(input);
+   }
+}
+
+with LASSO and with/without Judge LLM:
+
+public final class Base64 {
+   private static final int BASELENGTH = 255;
+   private static final int LOOKUPLENGTH = 64;
+   private static final int TWENTYFOURBITGROUP = 24;
+   private static final int EIGHTBIT = 8;
+   private static final int SIXTEENBIT = 16;
+   private static final int SIXBIT = 6;
+   private static final int FOURBYTE = 4;
+   private static final int SIGN = -128;
+   private static final byte PAD = (byte) '=';
+   private static byte[] base64Alphabet = new byte[BASELENGTH];
+   private static byte[] lookUpBase64Alphabet = new byte[LOOKUPLENGTH];
+
+   static {
+       for (int i = 0; i < BASELENGTH; i++) {
+           base64Alphabet[i] = -1;
+       }
+       for (int i = 'Z'; i >= 'A'; i--) {
+           base64Alphabet[i] = (byte) (i - 'A');
+       }
+       for (int i = 'z'; i >= 'a'; i--) {
+           base64Alphabet[i] = (byte) (i - 'a' + 26);
+       }
+       for (int i = '9'; i >= '0'; i--) {
+           base64Alphabet[i] = (byte) (i - '0' + 52);
+       }
+       base64Alphabet['+'] = 62;
+       base64Alphabet['/'] = 63;
+
+       for (int i = 0; i <= 25; i++) {
+           lookUpBase64Alphabet[i] = (byte) ('A' + i);
+       }
+       for (int i = 26, j = 0; i <= 51; i++, j++) {
+           lookUpBase64Alphabet[i] = (byte) ('a' + j);
+       }
+       for (int i = 52, j = 0; i <= 61; i++, j++) {
+           lookUpBase64Alphabet[i] = (byte) ('0' + j);
+       }
+       lookUpBase64Alphabet[62] = (byte) '+';
+       lookUpBase64Alphabet[63] = (byte) '/';
+   }
+
+   public byte[] encode(byte[] binaryData) {
+       int lengthDataBits = binaryData.length * EIGHTBIT;
+       int fewerThan24bits = lengthDataBits % TWENTYFOURBITGROUP;
+       int numberTriplets = lengthDataBits / TWENTYFOURBITGROUP;
+       byte[] encodedData;
+
+       if (fewerThan24bits != 0) {
+           // data not divisible by 24 bit
+           encodedData = new byte[(numberTriplets + 1) * 4];
+       } else {
+           // 16 or 8 bit
+           encodedData = new byte[numberTriplets * 4];
+       }
+
+       for (int i = 0; i < numberTriplets; i++) {
+           int dataIndex = i * 3;
+           byte b1 = binaryData[dataIndex];
+           byte b2 = binaryData[dataIndex + 1];
+           byte b3 = binaryData[dataIndex + 2];
+
+           byte l = (byte) (b2 & 0x0f);
+           byte k = (byte) (b1 & 0x03);
+
+           int encodedIndex = i * 4;
+           byte val1 = ((b1 & SIGN) == 0) ? (byte) (b1 >> 2) : (byte) ((b1) >> 2 ^ 0xc0);
+           byte val2 = ((b2 & SIGN) == 0) ? (byte) (b2 >> 4) : (byte) ((b2) >> 4 ^ 0xf0);
+           byte val3 = ((b3 & SIGN) == 0) ? (byte) (b3 >> 6) : (byte) ((b3) >> 6 ^ 0xfc);
+
+           encodedData[encodedIndex] = lookUpBase64Alphabet[val1];
+           encodedData[encodedIndex + 1] = lookUpBase64Alphabet[val2 | (k << 4)];
+           encodedData[encodedIndex + 2] = lookUpBase64Alphabet[(l << 2) | val3];
+           encodedData[encodedIndex + 3] = lookUpBase64Alphabet[b3 & 0x3f];
+       }
+
+       if (fewerThan24bits == EIGHTBIT) {
+           int dataIndex = numberTriplets * 3;
+           byte b1 = binaryData[dataIndex];
+           k = (byte) (b1 & 0x03);
+           byte val1 = ((b1 & SIGN) == 0) ? (byte) (b1 >> 2) : (byte) ((b1) >> 2 ^ 0xc0);
+           encodedData[numberTriplets * 4] = lookUpBase64Alphabet[val1];
+           encodedData[(numberTriplets * 4) + 1] = lookUpBase64Alphabet[k << 4];
+           encodedData[(numberTriplets * 4) + 2] = PAD;
+           encodedData[(numberTriplets * 4) + 3] = PAD;
+       } else if (fewerThan24bits == SIXTEENBIT) {
+           int dataIndex = numberTriplets * 3;
+           byte b1 = binaryData[dataIndex];
+           byte b2 = binaryData[dataIndex + 1];
+           l = (byte) (b2 & 0x0f);
+           k = (byte) (b1 & 0x03);
+
+           byte val1 = ((b1 & SIGN) == 0) ? (byte) (b1 >> 2) : (byte) ((b1) >> 2 ^ 0xc0);
+           byte val2 = ((b2 & SIGN) == 0) ? (byte) (b2 >> 4) : (byte) ((b2) >> 4 ^ 0xf0);
+
+           encodedData[numberTriplets * 4] = lookUpBase64Alphabet[val1];
+           encodedData[(numberTriplets * 4) + 1] = lookUpBase64Alphabet[val2 | (k << 4)];
+           encodedData[(numberTriplets * 4) + 2] = lookUpBase64Alphabet[l << 2];
+           encodedData[(numberTriplets * 4) + 3] = PAD;
+       }
+       return encodedData;
+   }
+}
+
+chatgpt3.5-turbo without lasso:
+public class Base64 implements Base64Interface { 
+    @Override public byte[] encode(byte[] input) { 
+        return java.util.Base64.getEncoder().encode(input); } }
+
+chatgpt3.5turbo with lasso and llm judge:
+import java.util.Base64;
+
+public class Base64 {
+    
+    public byte[] encode(byte[] data) {
+        return Base64.getEncoder().encode(data);
+    }
+}
+
+4.
+
+def interfaceSpec = """Cosine{
+    similarity(java.lang.String,java.lang.String)->double
+}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testDAG': sheet(cut:'Cosine', n1: 'software engineering is cool', n2: 'software analysis is cool') {
+            row  '',    'create', '?cut'
+            row  0.25d,    'similarity', 'A1', '?n1', '?n2'
+        }
+]
+
+without:
+public final class Cosine {
+   public double similarity(String n1, String n2) {
+       return cosineSimilarity(n1, n2);
+   }
+
+   private double cosineSimilarity(String text1, String text2) {
+       if (text1 == null || text2 == null) {
+           throw new IllegalArgumentException("Text must not be null");
+       }
+
+       // Tokenize the texts into words
+       List<String> words1 = Arrays.asList(text1.split("\\s+"));
+       List<String> words2 = Arrays.asList(text2.split("\\s+"));
+
+       // Create sets of unique words
+       Set<String> set1 = new HashSet<>(words1);
+       Set<String> set2 = new HashSet<>(words2);
+
+       // Convert the sets to lists and sort them
+       List<String> list1 = new ArrayList<>(set1);
+       List<String> list2 = new ArrayList<>(set2);
+       Collections.sort(list1);
+       Collections.sort(list2);
+
+       // Create bag-of-words vectors
+       Map<String, Integer> vector1 = getBagOfWordsVector(words1, list1);
+       Map<String, Integer> vector2 = getBagOfWordsVector(words2, list2);
+
+       // Calculate the dot product of the two vectors
+       int dotProduct = 0;
+       for (Map.Entry<String, Integer> entry : vector1.entrySet()) {
+           String word = entry.getKey();
+           if (vector2.containsKey(word)) {
+               dotProduct += entry.getValue() * vector2.get(word);
+           }
+       }
+
+       // Calculate the magnitudes of the two vectors
+       double magnitude1 = Math.sqrt(vector1.values().stream().mapToInt(Integer::intValue).sum());
+       double magnitude2 = Math.sqrt(vector2.values().stream().mapToInt(Integer::intValue).sum());
+
+       // Calculate the cosine similarity
+       if (magnitude1 == 0 || magnitude2 == 0) {
+           return 0;
+       } else {
+           return dotProduct / (magnitude1 * magnitude2);
+       }
+   }
+
+   private Map<String, Integer> getBagOfWordsVector(List<String> words, List<String> vocabulary) {
+       Map<String, Integer> vector = new HashMap<>();
+       for (String word : vocabulary) {
+           int count = Collections.frequency(words, word);
+           vector.put(word, count);
+       }
+       return vector;
+   }
+}
+
+with:
+package com.redhat.ceylon.compiler.typechecker.util;
+
+public class NormalizedLevenshtein {
+
+   private final Levenshtein l = new Levenshtein();
+
+   public double distance(String s1, String s2) {
+       return l.distance(s1, s2) / Math.max(s1.length(), s2.length());
+   }
+
+   public double similarity(String s1, String s2) {
+       return 1.0 - distance(s1, s2);
+   }
+   
+}
+
+
+With LASSO and LLM judge:
+
+import java.util.Map;
+import it.andreuzzi.comparestring2.algs.interfaces.NormalizedStringDistance;
+import it.andreuzzi.comparestring2.algs.interfaces.NormalizedStringSimilarity;
+
+public class Cosine extends ShingleBased implements NormalizedStringDistance, NormalizedStringSimilarity {
+
+   public Cosine(final int k) {
+       super(k);
+   }
+
+   public Cosine() {
+       super();
+   }
+
+   @Override
+   public final double similarity(final String s1, final String s2) {
+       if (s1 == null || s2 == null) {
+           throw new NullPointerException("Strings must not be null");
+       }
+       if (s1.equals(s2)) {
+           return 1;
+       }
+       if (s1.length() < getK() || s2.length() < getK()) {
+           return 0;
+       }
+       Map<String, Integer> profile1 = getProfile(s1);
+       Map<String, Integer> profile2 = getProfile(s2);
+       return dotProduct(profile1, profile2) / (norm(profile1) * norm(profile2));
+   }
+
+   private static double norm(final Map<String, Integer> profile) {
+       double agg = 0;
+       for (Map.Entry<String, Integer> entry : profile.entrySet()) {
+           agg += 1.0 * entry.getValue() * entry.getValue();
+       }
+       return Math.sqrt(agg);
+   }
+
+   private static double dotProduct(final Map<String, Integer> profile1, final Map<String, Integer> profile2) {
+       Map<String, Integer> small_profile = profile2;
+       Map<String, Integer> large_profile = profile1;
+       if (profile1.size() < profile2.size()) {
+           small_profile = profile1;
+           large_profile = profile2;
+       }
+       double agg = 0;
+       for (Map.Entry<String, Integer> entry : small_profile.entrySet()) {
+           Integer i = large_profile.get(entry.getKey());
+           if (i != null) {
+               agg += 1.0 * entry.getValue() * i;
+           }
+       }
+       return agg;
+   }
+
+   @Override
+   public final double distance(final String s1, final String s2) {
+       return 1.0 - similarity(s1, s2);
+   }
+
+   @Override
+   public final double similarity(Map<String, Integer> profile1, Map<String, Integer> profile2) {
+       return dotProduct(profile1, profile2) / (norm(profile1) * norm(profile2));
+   }
+}
+
+5.
+
+        
+def interfaceSpec = """DirectedGraph{
+    addNode(java.lang.Object)->boolean
+    addEdge(java.lang.Object,java.lang.Object)->void
+    getOutgoingEdges(java.lang.Object)->java.util.Set
+}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testDAG': sheet(cut:'DirectedGraph', n1: 'hello', n2: 'world') {
+            row  '',    'create', '?cut'
+            row  true,    'addNode', 'A1', '?n1'
+            row  true,    'addNode', 'A1', '?n2'
+            row  '',  'addEdge', 'A1', '?n1', '?n2'
+            row  ['world'],  'getOutgoingEdges', 'A1', '?n1'
+        }
+]
+
+
+With/out LASSO:
+
+import java.util.*;
+
+interface DirectedGraph<T> {
+    boolean addNode(T node);
+    void addEdge(T source, T destination);
+    Set<T> getOutgoingEdges(T node);
+}
+
+class SimpleDirectedGraph<T> implements DirectedGraph<T> {
+    private Map<T, Set<T>> adjacencyList;
+
+    public SimpleDirectedGraph() {
+        adjacencyList = new HashMap<>();
+    }
+
+    @Override
+    public boolean addNode(T node) {
+        if (adjacencyList.containsKey(node)) {
+            return false; // Node already exists
+        } else {
+            adjacencyList.put(node, new HashSet<>());
+            return true;
+        }
+    }
+
+    @Override
+    public void addEdge(T source, T destination) {
+        if (!adjacencyList.containsKey(source)) {
+            throw new IllegalArgumentException("Source node does not exist.");
+        }
+        adjacencyList.get(source).add(destination);
+    }
+
+    @Override
+    public Set<T> getOutgoingEdges(T node) {
+        if (!adjacencyList.containsKey(node)) {
+            throw new IllegalArgumentException("Node does not exist.");
+        }
+        return Collections.unmodifiableSet(adjacencyList.get(node));
+    }
+}
+
+
+
+
+With chatgpt3.5-turbo and without lasso:
+
+import java.util.*;
+
+public class DirectedGraph {
+
+private Map<Object, Set<Object>> graph;
+
+public DirectedGraph() {
+    graph = new HashMap<>();
+}
+
+public boolean addNode(Object node) {
+    if (!graph.containsKey(node)) {
+        graph.put(node, new HashSet<>());
+        return true;
+    }
+    return false;
+}
+
+public void addEdge(Object source, Object destination) {
+    if (!graph.containsKey(source)) {
+        addNode(source);
+    }
+    if (!graph.containsKey(destination)) {
+        addNode(destination);
+    }
+    graph.get(source).add(destination);
+}
+
+public Set<Object> getOutgoingEdges(Object node) {
+    return graph.getOrDefault(node, new HashSet<>());
+}
+}
+
+with chatgpt3.5 turbo and with lasso:
+
+import java.util.*;
+
+public class DirectedGraph<T> {
+    private final Map<T, Set<T>> graph = new HashMap<>();
+
+    public boolean addNode(T node) {
+        if (graph.containsKey(node)) {
+            return false;
+        }
+        graph.put(node, new HashSet<>());
+        return true;
+    }
+
+    public void addEdge(T start, T dest) {
+        if (!graph.containsKey(start)) {
+            throw new NoSuchElementException("Start node does not exist");
+        }
+        if (!graph.containsKey(dest)) {
+            throw new NoSuchElementException("Destination node does not exist");
+        }
+        graph.get(start).add(dest);
+    }
+
+    public Set<T> getOutgoingEdges(T node) {
+        return Collections.unmodifiableSet(graph.getOrDefault(node, new HashSet<>()));
+    }
+}
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testDAG': sheet(cut:'DirectedGraph', n1: 'hello', n2: 'world') {
+            row  '',    'create', '?cut'
+            row  true,    'addNode', 'A1', '?n1'
+            row  true,    'addNode', 'A1', '?n2'
+            row  '',  'addEdge', 'A1', '?n1', '?n2'
+            row  ['world'],  'getOutgoingEdges', 'A1', '?n1'
+        }
+]
+
+Generated Tests: 
+sequences = [
+'addNodeTest': sheet(graph:'DirectedGraph') {
+row true, 'addNode', new java.lang.Object()
+row false, 'addNode', "node"
+},
+'addEdgeTest': sheet(graph:'DirectedGraph') {
+row null, 'addEdge', new java.lang.Object(), new java.lang.Object()
+row null, 'addEdge', "source", "target"
+},
+
+with lasso and tests:
+import java.util.*;
+
+interface DirectedGraph<T> {
+   boolean addNode(T node);
+   void addEdge(T source, T destination);
+   Set<T> getOutgoingEdges(T node);
+}
+
+class SimpleDirectedGraph<T> implements DirectedGraph<T> {
+   private Map<T, Set<T>> adjacencyList;
+
+   public SimpleDirectedGraph() {
+       adjacencyList = new HashMap<>();
+   }
+
+   @Override
+   public boolean addNode(T node) {
+       if (adjacencyList.containsKey(node)) {
+           return false; // Node already exists
+       } else {
+           adjacencyList.put(node, new HashSet<>());
+           return true;
+       }
+   }
+
+   @Override
+   public void addEdge(T source, T destination) {
+       if (!adjacencyList.containsKey(source)) {
+           throw new IllegalArgumentException("Source node does not exist.");
+       }
+       adjacencyList.get(source).add(destination);
+   }
+
+   @Override
+   public Set<T> getOutgoingEdges(T node) {
+       if (!adjacencyList.containsKey(node)) {
+           throw new IllegalArgumentException("Node does not exist.");
+       }
+       return Collections.unmodifiableSet(adjacencyList.get(node));
+   }
+}
+
+
+6.
+
+def interfaceSpec = """Filename{
+    getExtension(java.io.File)->java.lang.String
+}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testGetExtAbsolutePath': sheet(cut:'Filename', fileName: '/home/user/something.txt') {
+            row  '',    'create', '?cut'
+            row  '',    'create', 'java.io.File', '?fileName'
+            row  '.txt',  'getExtension', 'A1', 'A2'
+        }
+]
+without lasso:
+
+import java.io.File;
+
+interface Filename {
+   String getExtension(File file);
+}
+
+class FileExtension implements Filename {
+   @Override
+   public String getExtension(File file) {
+       if (file == null || !file.exists()) {
+           return "";
+       }
+       String name = file.getName();
+       int lastDotIndex = name.lastIndexOf('.');
+       if (lastDotIndex == -1 || lastDotIndex == name.length() - 1) {
+           return "";
+       }
+       return name.substring(lastDotIndex + 1);
+   }
+}
+
+with lasso+llm+tests:
+import java.io.File;
+
+interface Filename {
+   String getExtension(File file);
+}
+
+class FileExtension implements Filename {
+   @Override
+   public String getExtension(File file) {
+       if (file == null || !file.exists()) {
+           return "";
+       }
+       String name = file.getName();
+       int lastDotIndex = name.lastIndexOf('.');
+       if (lastDotIndex == -1 || lastDotIndex == name.length() - 1) {
+           return "";
+       }
+       return name.substring(lastDotIndex + 1);
+   }
+}
+
+With lasso and Judge LLM:
+
+    public final class FilenameExtensions {
+
+   public static String getExtension(final File file) {
+       if (!file.isDirectory()) {
+           final String fileName = file.getName();
+           int extIndex = fileName.lastIndexOf(".");
+           if (extIndex != -1) {
+               return fileName.substring(extIndex + 1);
+           }
+       }
+       return null;
+   }
+
+   private FilenameExtensions() {}
+}
+
+7.
+
+def interfaceSpec = """Fraction {
+    Fraction(int,int)
+    asDouble()->double
+    getDenominator()->int
+    getNumerator()->int
+}"""
+
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testFraction': sheet(base64:'Fraction', num:2, denom:4) {
+            row  '',    'create', '?base64' , '?num', '?denom'
+            row 1,  'getNumerator',   'A1'
+            row 2,  'getDenominator',   'A1'
+            row 0.5d,  'asDouble',   'A1'
+        }
+]
+
+without lasso:
+class Fraction {
+   private int numerator;
+   private int denominator;
+
+   public Fraction(int numerator, int denominator) {
+       if (denominator == 0) {
+           throw new IllegalArgumentException("Denominator cannot be zero.");
+       }
+       this.numerator = numerator;
+       this.denominator = denominator;
+   }
+
+   public double asDouble() {
+       return (double) numerator / denominator;
+   }
+
+   public int getNumerator() {
+       return numerator;
+   }
+
+   public int getDenominator() {
+       return denominator;
+   }
+}
+with lasso:
+public class Fraction {
+   private int numerator;
+   private int denominator;
+
+   public Fraction(int numerator, int denominator) {
+       this.numerator = numerator;
+       this.denominator = denominator;
+   }
+
+   public double asDouble() {
+       return (double) numerator / denominator;
+   }
+
+   public int getNumerator() {
+       return numerator;
+   }
+
+   public int getDenominator() {
+       return denominator;
+   }
+}
+
+
+With Lasso and LLM Judge: (refused 3 context implementations)
+
+public interface Fraction {
+   Fraction(int numerator, int denominator);
+   double asDouble();
+   int getDenominator();
+   int getNumerator();
+}
+
+public class SimpleFraction implements Fraction {
+   private final int numerator;
+   private final int denominator;
+
+   public SimpleFraction(int numerator, int denominator) {
+       if (denominator == 0) {
+           throw new IllegalArgumentException("Denominator cannot be zero.");
+       }
+       this.numerator = numerator;
+       this.denominator = denominator;
+   }
+
+   @Override
+   public double asDouble() {
+       return (double) numerator / denominator;
+   }
+
+   @Override
+   public int getDenominator() {
+       return denominator;
+   }
+
+   @Override
+   public int getNumerator() {
+       return numerator;
+   }
+}
+Note: Although FractionWithLasso does not perform a denominator zero check, it adheres to the Fraction interface. This design allows for flexibility in how validations and additional logic are handled across different implementations.
+
+8.
+
+Note: The JacksonJsonWithLasso implementation uses the Jackson library for JSON parsing, which is robust and widely used for handling JSON in Java applications.
+
+def interfaceSpec = """Json {
+    fromJson(java.lang.String)->java.util.Map}"""
+    
+    
+    
+    
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testFromJson': sheet(p1: 'Json') {
+            row '', 'create', '?p1'
+            row '', 'fromJson', 'A1', '{"name" : "Jane Doe"}'
+            row 'Jane Doe', 'get', 'A2', 'name'
+        }
+]
+
+without:
+import java.util.*;
+import org.json.*;
+
+interface Json {
+   Map<String, Object> fromJson(String json);
+}
+
+class JSONParser implements Json {
+   @Override
+   public Map<String, Object> fromJson(String json) {
+       try {
+           JSONObject obj = new JSONObject(json);
+           Map<String, Object> map = new HashMap<>();
+           Iterator<?> keys = obj.keys();
+           while (keys.hasNext()) {
+               String key = (String) keys.next();
+               map.put(key, obj.get(key));
+           }
+           return map;
+       } catch (JSONException e) {
+           throw new IllegalArgumentException("Invalid JSON format", e);
+       }
+   }
+}
+
+
+
+with lasso and with/without LLM judge:
+import java.util.Map;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+interface Json {
+   Map<String, ?> fromJson(String json);
+}
+
+class JacksonJson implements Json {
+   @Override
+   public Map<String, ?> fromJson(String json) {
+       ObjectMapper mapper = new ObjectMapper();
+       try {
+           return mapper.readValue(json, Map.class);
+       } catch (Exception e) {
+           throw new RuntimeException("Error parsing JSON: " + e.getMessage(), e);
+       }
+   }
+}
+        
+
+
+
+9.
+
+Note: Both implementations use the Jsoup library to sanitize HTML by removing all tags, including potentially harmful ones like <script>. The implementation with LASSO does not differ in functionality from the one without LASSO.
+
+        
+def interfaceSpec = """Html {
+    sanitize(java.lang.String)->java.lang.String
+}"""
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testJs': sheet(html:'Html', h:"abc <script>alert(1)</script> def") {
+            row  '',    'create', '?html'
+            row 'abc def',  'sanitize', 'A1',  '?h'
+        }
+]
+without lasso:
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
+
+interface Html {
+   String sanitize(String html);
+}
+
+class JsoupHtml implements Html {
+   @Override
+   public String sanitize(String html) {
+       Safelist safelist = Safelist.none(); // Remove all tags, including safe ones
+       return Jsoup.clean(html, safelist);
+   }
+}
+
+with lasso only:
+import org.jsoup.Jsoup;
+import org.jsoup.safety.Safelist;
+
+interface Html {
+   String sanitize(String html);
+}
+
+class JsoupHtml implements Html {
+   @Override
+   public String sanitize(String html) {
+       Safelist safelist = Safelist.none(); // Remove all tags, including safe ones
+       return Jsoup.clean(html, safelist);
+   }
+}
+
+with lasso and judge llm (2 used):
+import java.io.IOException;
+import java.util.Map;
+
+import com.fasterxml.jackson.core.JsonParseException;
+import com.fasterxml.jackson.databind.JsonMappingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+public class JsonImpl implements Json {
+   private static ObjectMapper objectMapper = new ObjectMapper();
+
+   @Override
+   public Map<String, Object> fromJson(String stringJson) throws JsonParseException, JsonMappingException, IOException {
+       return objectMapper.readValue(stringJson, Map.class);
+   }
+}
+
+
+
+
+
+10.
+
+        
+def interfaceSpec = """Matrix {
+    Matrix(double[][],int,int)
+    set(int,int,double)->void
+    get(int, int)->double
+    sum(Matrix)->Matrix
+}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testMatrix': sheet(base64:'Matrix') {
+            row  '',    'create', '?base64' , new double[][]{new double[]{1d,1d}, new double[]{1d,1d}}, 2, 2
+            row 1,  'get', 'A1',  0, 0
+            row '',  'set', 'A1',  0, 0, 5d
+            row '', 'create', '?base64' , new double[][]{new double[]{2d,2d}, new double[]{2d,2d}}, 2,2
+            row '',  'sum',   'A1', 'A4'
+            row 7, 'get', 'A5', 0, 0
+            row 3, 'get', 'A5', 0, 1
+            row 3, 'get', 'A5', 1, 0
+            row 3, 'get', 'A5', 1, 1
+        }
+]
+without:
+ public class MatrixImpl implements Matrix {
+   private double[][] matrix;
+   private int rows;
+   private int cols;
+
+   public MatrixImpl(double[][] matrix, int rows, int cols) {
+       this.matrix = new double[rows][cols];
+       for (int i = 0; i < rows; i++) {
+           for (int j = 0; j < cols; j++) {
+               this.matrix[i][j] = matrix[i][j];
+           }
+       }
+       this.rows = rows;
+       this.cols = cols;
+   }
+
+   @Override
+   public void set(int row, int col, double value) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       matrix[row][col] = value;
+   }
+
+   @Override
+   public double get(int row, int col) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       return matrix[row][col];
+   }
+
+   @Override
+   public Matrix sum(Matrix other) {
+       if (this.rows != other.getRows() || this.cols != other.getCols()) {
+           throw new IllegalArgumentException("Matrices must have the same dimensions to be summed");
+       }
+       double[][] result = new double[rows][cols];
+       for (int i = 0; i < rows; i++) {
+           for (int j = 0; j < cols; j++) {
+               result[i][j] = this.matrix[i][j] + ((MatrixImpl) other).matrix[i][j];
+           }
+       }
+       return new MatrixImpl(result, rows, cols);
+   }
+
+   public int getRows() {
+       return rows;
+   }
+
+   public int getCols() {
+       return cols;
+   }
+}
+
+with:
+public class MatrixImpl implements Matrix {
+   private double[][] matrix;
+   private int rows;
+   private int cols;
+
+   public MatrixImpl(double[][] data, int rows, int cols) {
+       this.matrix = new double[rows][cols];
+       for (int i = 0; i < rows; i++) {
+           for (int j = 0; j < cols; j++) {
+               this.matrix[i][j] = data[i][j];
+           }
+       }
+       this.rows = rows;
+       this.cols = cols;
+   }
+
+   @Override
+   public void set(int row, int col, double value) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       matrix[row][col] = value;
+   }
+
+   @Override
+   public double get(int row, int col) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       return matrix[row][col];
+   }
+
+   @Override
+   public Matrix sum(Matrix other) {
+       if (this.rows != other.getRows() || this.cols != other.getCols()) {
+           throw new IllegalArgumentException("Matrices must have the same dimensions to be summed");
+       }
+       double[][] result = new double[rows][cols];
+       for (int i = 0; i < rows; i++) {
+           for (int j = 0; j < cols; j++) {
+               result[i][j] = this.matrix[i][j] + ((MatrixImpl) other).matrix[i][j];
+           }
+       }
+       return new MatrixImpl(result, rows, cols);
+   }
+}
+
+with lasso and judge llm:
+public interface Matrix {
+   Matrix(double[][], int, int);
+   void set(int, int, double);
+   double get(int, int);
+   Matrix sum(Matrix);
+}
+
+public class MatrixImpl implements Matrix {
+   private double[][] data;
+   private int rows;
+   private int cols;
+
+   public MatrixImpl(double[][] data, int rows, int cols) {
+       this.data = data;
+       this.rows = rows;
+       this.cols = cols;
+   }
+
+   @Override
+   public void set(int row, int col, double value) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       data[row][col] = value;
+   }
+
+   @Override
+   public double get(int row, int col) {
+       if (row < 0 || row >= rows || col < 0 || col >= cols) {
+           throw new IndexOutOfBoundsException("Index out of bounds");
+       }
+       return data[row][col];
+   }
+
+   @Override
+   public Matrix sum(Matrix other) {
+       if (this.rows != other.getRowDimension() || this.cols != other.getColumnDimension()) {
+           throw new IllegalArgumentException("Matrices must have the same dimensions for summation");
+       }
+       double[][] result = new double[rows][cols];
+       for (int i = 0; i < rows; i++) {
+           for (int j = 0; j < cols; j++) {
+               result[i][j] = this.data[i][j] + other.get(i, j);
+           }
+       }
+       return new MatrixImpl(result, rows, cols);
+   }
+}
+
+
+11.
+
+def interfaceSpec = """MinHeap{
+    MinHeap(int)
+    add(int)->void
+    getMin()->int
+    size()->int
+}"""
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testMin': sheet(cut:'MinHeap') {
+            row  '',    'create', '?cut', 5
+            row  0,    'size', 'A1'
+            row  '',   'add', 'A1', 5
+            row  '',   'add', 'A1', 2
+            row  '',   'add', 'A1', 3
+            row  '',   'add', 'A1', 5
+            row  '',   'add', 'A1', 4
+            row  5,    'size', 'A1'
+            row  2,  'getMin', 'A1'
+        }
+]
+
+without:
+import java.util.ArrayList;
+import java.util.List;
+
+public class MinHeap implements MinHeapInterface {
+   private List<Integer> heap;
+
+   public MinHeap(int capacity) {
+       this.heap = new ArrayList<>(capacity);
+   }
+
+   @Override
+   public void add(int value) {
+       heap.add(value);
+       int index = heap.size() - 1;
+       while (index > 0 && heap.get((index - 1) / 2) > heap.get(index)) {
+           swap(index, (index - 1) / 2);
+           index = (index - 1) / 2;
+       }
+   }
+
+   @Override
+   public int getMin() {
+       if (heap.isEmpty()) {
+           throw new IllegalStateException("Heap is empty");
+       }
+       return heap.get(0);
+   }
+
+   @Override
+   public int size() {
+       return heap.size();
+   }
+
+   private void swap(int i, int j) {
+       int temp = heap.get(i);
+       heap.set(i, heap.get(j));
+       heap.set(j, temp);
+   }
+}
+
+with lasso:
+import java.util.ArrayList;
+import java.util.List;
+
+public class MinHeap implements MinHeapInterface {
+   private List<Integer> heap;
+
+   public MinHeap(int capacity) {
+       this.heap = new ArrayList<>(capacity);
+   }
+
+   @Override
+   public void add(int value) {
+       heap.add(value);
+       int index = heap.size() - 1;
+       while (index > 0 && heap.get((index - 1) / 2) > heap.get(index)) {
+           swap(index, (index - 1) / 2);
+           index = (index - 1) / 2;
+       }
+   }
+
+   @Override
+   public int getMin() {
+       if (heap.isEmpty()) {
+           throw new IllegalStateException("Heap is empty");
+       }
+       return heap.get(0);
+   }
+
+   @Override
+   public int size() {
+       return heap.size();
+   }
+
+   private void swap(int i, int j) {
+       int temp = heap.get(i);
+       heap.set(i, heap.get(j));
+       heap.set(j, temp);
+   }
+}
+
+WIth lasso and llm judge:(2 kicked)
+public interface MinHeap {
+   MinHeap(int capacity);
+   void add(int element);
+   int getMin();
+   int size();
+}
+
+public class ArrayMinHeap implements MinHeap {
+   private int[] heap;
+   private int size;
+
+   public ArrayMinHeap(int capacity) {
+       heap = new int[capacity];
+       size = 0;
+   }
+
+   @Override
+   public void add(int element) {
+       if (size == heap.length) {
+           throw new IllegalStateException("Heap is full");
+       }
+       heap[size] = element;
+       siftUp(size);
+       size++;
+   }
+
+   @Override
+   public int getMin() {
+       if (size == 0) {
+           throw new IllegalStateException("Heap is empty");
+       }
+       return heap[0];
+   }
+
+   @Override
+   public int size() {
+       return size;
+   }
+
+   private void siftUp(int index) {
+       while (index > 0 && heap[(index - 1) / 2] > heap[index]) {
+           swap((index - 1) / 2, index);
+           index = (index - 1) / 2;
+       }
+   }
+
+   private void siftDown(int index) {
+       int smallest = index;
+       int leftChild = 2 * index + 1;
+       int rightChild = 2 * index + 2;
+
+       if (leftChild < size && heap[leftChild] < heap[smallest]) {
+           smallest = leftChild;
+       }
+
+       if (rightChild < size && heap[rightChild] < heap[smallest]) {
+           smallest = rightChild;
+       }
+
+       if (smallest != index) {
+           swap(index, smallest);
+           siftDown(smallest);
+       }
+   }
+
+   private void swap(int i, int j) {
+       int temp = heap[i];
+       heap[i] = heap[j];
+       heap[j] = temp;
+   }
+}
+
+12.
+
+def interfaceSpec = """MovingAverage {
+    MovingAverage(int)
+    add(int)->void
+    getAverage()->double
+}"""
+
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testAvg': sheet(cut:'MovingAverage') {
+            row  '',    'create', '?cut' , 10
+            row  '',  'add', 'A1',  1d
+            row  '',  'add', 'A1',  2d
+            row  '',  'add', 'A1',  3d
+            row  '',  'add', 'A1',  4d
+            row  2.5d,  'getAverage', 'A1'
+        }
+]
+
+Without:
+import java.util.LinkedList;
+import java.util.Queue;
+
+public class MovingAverage implements MovingAverageInterface {
+   private Queue<Integer> queue;
+   private int size;
+   private double sum;
+
+   public MovingAverage(int windowSize) {
+       this.queue = new LinkedList<>();
+       this.size = windowSize;
+       this.sum = 0.0;
+   }
+
+   @Override
+   public void add(int value) {
+       if (queue.size() == size) {
+           sum -= queue.poll();
+       }
+       queue.add(value);
+       sum += value;
+   }
+
+   @Override
+   public double getAverage() {
+       return sum / queue.size();
+   }
+}
+
+
+
+
+
+
+With:
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class MovingAverage implements MovingAverageInterface {
+   private List<Integer> values = new ArrayList<>();
+   private int windowSize;
+
+   public MovingAverage(int size) {
+       this.windowSize = size;
+   }
+
+   @Override
+   public void add(int value) {
+       if (values.size() >= windowSize) {
+           values.remove(0); // Remove the oldest value if the list exceeds the window size
+       }
+       values.add(value);
+   }
+
+   @Override
+   public double getAverage() {
+       if (values.isEmpty()) {
+           return 0; // Return 0 for an empty list to avoid division by zero
+       }
+       int sum = 0;
+       for (int value : values) {
+           sum += value;
+       }
+       return (double) sum / values.size();
+   }
+}
+
+with lasso and judge llm:
+public interface MovingAverage {
+   void add(int value);
+   double getAverage();
+}
+
+public class SimpleMovingAverage implements MovingAverage {
+   private int windowSize;
+   private java.util.Queue<Integer> queue = new java.util.LinkedList<>();
+
+   public SimpleMovingAverage(int windowSize) {
+       this.windowSize = windowSize;
+   }
+
+   @Override
+   public void add(int value) {
+       if (queue.size() >= windowSize) {
+           queue.poll();
+       }
+       queue.offer(value);
+   }
+
+   @Override
+   public double getAverage() {
+       int sum = 0;
+       for (int num : queue) {
+           sum += num;
+       }
+       return (double) sum / queue.size();
+   }
+}
+
+
+13.
+
+def interfaceSpec = """MultiMap{
+    put(java.lang.Object,java.lang.Object)->java.lang.Object
+    get(java.lang.Object)->java.util.Collection
+    size()->int
+}"""
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'pushPop': sheet(p1: 'MultiMap', p2: "hello", p3: "world") {
+            row '', 'create', '?p1'
+            row '', 'put', 'A1', '?p2', '?p3'
+            row '', 'put', 'A1', '?p2', '?p3'
+            row ['world','world'], 'get', 'A1', '?p2'
+            row 1, 'size', 'A1'
+        }
+]
+
+without:
+
+import java.util.*;
+
+public class MultiMap {
+   private Map<Object, Collection<Object>> map = new HashMap<>();
+
+   public void put(Object key, Object value) {
+       if (!map.containsKey(key)) {
+           map.put(key, new ArrayList<>());
+       }
+       map.get(key).add(value);
+   }
+
+   public Collection<Object> get(Object key) {
+       return map.getOrDefault(key, Collections.emptyList());
+   }
+
+   public int size() {
+       return map.size();
+   }
+}
+
+
+with:
+
+import java.util.*;
+
+public class MultiMap implements def interfaceSpec {
+   private Map<Object, List<Object>> map = new HashMap<>();
+
+   @Override
+   public Object put(Object key, Object value) {
+       if (!map.containsKey(key)) {
+           map.put(key, new ArrayList<>());
+       }
+       map.get(key).add(value);
+       return value;
+   }
+
+   @Override
+   public Collection<Object> get(Object key) {
+       return map.getOrDefault(key, Collections.emptyList());
+   }
+
+   @Override
+   public int size() {
+       return map.size();
+   }
+}
+
+with lasso and judge llm:
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
+
+public class MultiMap implements edu.washington.cs.knowitall.commonlib.MultiMap<String, String> {
+   private Map<String, Collection<String>> map = new HashMap<>();
+
+   @Override
+   public Object put(Object key, Object value) {
+       if (!map.containsKey((String) key)) {
+           map.put((String) key, new ArrayList<>());
+       }
+       ((ArrayList<String>) map.get((String) key)).add((String) value);
+       return value;
+   }
+
+   @Override
+   public Collection get(Object key) {
+       return map.getOrDefault(key, new ArrayList<>());
+   }
+
+   @Override
+   public int size() {
+       return map.size();
+   }
+}
+
+
+14.
+
+def interfaceSpec = """Ngram {
+    Ngram(int)
+    distance(java.lang.String,java.lang.String)->float
+}"""
+
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testDistance': sheet(ngram:'NGram', n: 2, s1: 'ABABABAB', s2: 'ABCABCABCABC') {
+            row  '',    'create', '?ngram',  '?n'
+            row  0.5416666,  'distance', 'A1', '?s1', '?s2'
+        }
+]
+        
+without:
+import java.util.*;
+
+public class NGram implements def interfaceSpec {
+   private int n;
+
+   public NGram(int n) {
+       this.n = n;
+   }
+
+   @Override
+   public float distance(String s1, String s2) {
+       List<String> words1 = getNgrams(s1);
+       List<String> words2 = getNgrams(s2);
+       Set<String> set1 = new HashSet<>(words1);
+       Set<String> set2 = new HashSet<>(words2);
+       int unionSize = set1.size() + set2.size();
+       set1.addAll(set2);
+       return 1 - (float) (unionSize - Math.min(set1.size(), words1.size() + words2.size())) / Math.max(words1.size(), words2.size());
+   }
+
+   private List<String> getNgrams(String s) {
+       List<String> ngrams = new ArrayList<>();
+       for (int i = 0; i <= s.length() - n; i++) {
+           ngrams.add(s.substring(i, i + n));
+       }
+       return ngrams;
+   }
+}
+
+
+
+
+
+with lasso and with/wihtou judge llm:
+public class NGramDistance implements StringDistance {
+   private int n;
+
+   public NGramDistance(int size) {
+       this.n = size;
+   }
+
+   public float getDistance(String source, String target) {
+       final int sl = source.length();
+       final int tl = target.length();
+
+       if (sl == 0 || tl == 0) {
+           if (sl == tl) {
+               return 1;
+           } else {
+               return 0;
+           }
+       }
+
+       int cost = 0;
+       if (sl < n || tl < n) {
+           for (int i = 0, ni = Math.min(sl, tl); i < ni; i++) {
+               if (source.charAt(i) == target.charAt(i)) {
+                   cost++;
+               }
+           }
+           return (float) cost / Math.max(sl, tl);
+       }
+
+       char[] sa = new char[sl + n - 1];
+       float p[]; // 'previous' cost array, horizontally
+       float d[]; // cost array, horizontally
+       float _d[]; // placeholder to assist in swapping p and d
+
+       for (int i = 0; i < sa.length; i++) {
+           if (i < n - 1) {
+               sa[i] = 0; // add prefix
+           } else {
+               sa[i] = source.charAt(i - n + 1);
+           }
+       }
+       p = new float[sl + 1];
+       d = new float[sl + 1];
+
+       for (int i = 0; i <= sl; i++) {
+           p[i] = i;
+       }
+
+       for (int j = 1; j <= tl; j++) {
+           char[] t_j = new char[n];
+           if (j < n) {
+               for (int ti = 0; ti < n - j; ti++) {
+                   t_j[ti] = 0; // add prefix
+               }
+               for (int ti = n - j; ti < n; ti++) {
+                   t_j[ti] = target.charAt(ti - (n - j));
+               }
+           } else {
+               t_j = target.substring(j - n, j).toCharArray();
+           }
+           d[0] = j;
+           for (int i = 1; i <= sl; i++) {
+               cost = 0;
+               int tn = n;
+               for (int ni = 0; ni < n; ni++) {
+                   if (sa[i - 1 + ni] != t_j[ni]) {
+                       cost++;
+                   } else if (sa[i - 1 + ni] == 0) { // discount matches on prefix
+                       tn--;
+                   }
+               }
+               float ec = (float) cost / tn;
+               d[i] = Math.min(Math.min(d[i - 1] + 1, p[i] + 1), p[i - 1] + ec);
+           }
+           _d = p;
+           p = d;
+           d = _d;
+       }
+
+       return 1.0f - (p[sl] / Math.max(tl, sl));
+   }
+}
+
+15.
+
+def interfaceSpec = """Ngram {
+    generateNGrams(java.lang.String, int)->java.util.List
+}"""
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testGenerate': sheet(ngram:'NGram', n: 2, s1: 'Code search engines are cool') {
+            row  '',    'create', '?ngram'
+            row  ['Code search','search engines','engines are','are cool'], 'generateNGrams', 'A1', '?s1', '?n'
+        }
+]
+without:
+        import java.util.ArrayList;
+import java.util.List;
+
+public class NGramImpl implements NGram {
+   @Override
+   public List<String> generateNGrams(String s1, int n) {
+       if (s1 == null || s1.isEmpty() || n <= 0) {
+           return new ArrayList<>();
+       }
+       
+       String[] words = s1.split("\\s+");
+       List<String> nGrams = new ArrayList<>();
+       
+       for (int i = 0; i <= words.length - n; i++) {
+           StringBuilder nGramBuilder = new StringBuilder();
+           for (int j = 0; j < n; j++) {
+               if (j > 0) {
+                   nGramBuilder.append(" ");
+               }
+               nGramBuilder.append(words[i + j]);
+           }
+           nGrams.add(nGramBuilder.toString());
+       }
+       
+       return nGrams;
+   }
+}
+
+with:
+import java.util.ArrayList;
+import java.util.List;
+
+public class NGramImpl implements NGram {
+   @Override
+   public List<String> generateNGrams(String s1, int n) {
+       if (s1 == null || s1.isEmpty() || n <= 0) {
+           return new ArrayList<>();
+       }
+       
+       String[] words = s1.split("\\s+");
+       List<String> nGrams = new ArrayList<>();
+       
+       for (int i = 0; i <= words.length - n; i++) {
+           StringBuilder nGram = new StringBuilder();
+           for (int j = 0; j < n; j++) {
+               if (j > 0) {
+                   nGram.append(" ");
+               }
+               nGram.append(words[i + j]);
+           }
+           nGrams.add(nGram.toString());
+       }
+       
+       return nGrams;
+   }
+}
+
+with lasso and llm judge:
+        
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class NGram implements it.unitn.disi.smatch.matchers.element.string.NGram {
+   public List<String> generateNGrams(String str, int n) {
+       if (str == null || str.length() == 0) return new ArrayList<>();
+       List<String> grams = new ArrayList<>();
+       int length = str.length();
+       String gram;
+       if (length < n) {
+           for (int i = 1; i <= length; i++) {
+               gram = str.substring(0, i);
+               if (!grams.contains(gram)) grams.add(gram);
+           }
+           gram = str.substring(length - 1, length);
+           if (!grams.contains(gram)) grams.add(gram);
+       } else {
+           for (int i = 1; i <= n - 1; i++) {
+               gram = str.substring(0, i);
+               if (!grams.contains(gram)) grams.add(gram);
+           }
+           for (int i = 0; i < length - n + 1; i++) {
+               gram = str.substring(i, i + n);
+               if (!grams.contains(gram)) grams.add(gram);
+           }
+           for (int i = length - n + 1; i < length; i++) {
+               gram = str.substring(i, length);
+               if (!grams.contains(gram)) grams.add(gram);
+           }
+       }
+       return grams;
+   }
+}
+
+16.
+        
+def interfaceSpec = """Queue {
+    enqueue(java.lang.Object)->java.lang.Object
+    dequeue()->java.lang.Object
+    peek()->java.lang.Object
+    size()->int
+}"""
+
+
+
+sequences = [
+        'enqueueTwoElements': sheet(p1: 'Queue', p2: "hello", p3: "world") {
+            row '',    'create', '?p1'
+            row '?p2',    'enqueue', 'A1', '?p2'
+            row '?p3',    'enqueue', 'A1', '?p3'
+            row '?p2', 'peek',    'A1'
+            row 2,     'size',    'A1'
+            row '?p2', 'dequeue', 'A1'
+            row 1,     'size',    'A1'
+        }
+]
+
+without:
+import java.util.LinkedList;
+import java.util.Queue;
+
+public class QueueImpl implements Queue {
+   private Queue<Object> queue = new LinkedList<>();
+
+   @Override
+   public Object enqueue(Object element) {
+       queue.add(element);
+       return element;
+   }
+
+   @Override
+   public Object dequeue() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Queue is empty");
+       }
+       return queue.remove();
+   }
+
+   @Override
+   public Object peek() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Queue is empty");
+       }
+       return queue.peek();
+   }
+
+   @Override
+   public int size() {
+       return queue.size();
+   }
+
+   private boolean isEmpty() {
+       return queue.isEmpty();
+   }
+}
+
+with:
+
+public interface Queue {
+   Object enqueue(Object element);
+   Object dequeue();
+   Object peek();
+   int size();
+}
+
+public class ArrayQueue implements Queue {
+   private java.util.List<Object> elements = new java.util.ArrayList<>();
+
+   @Override
+   public Object enqueue(Object element) {
+       elements.add(element);
+       return element;
+   }
+
+   @Override
+   public Object dequeue() {
+       if (elements.isEmpty()) {
+           throw new IllegalStateException("Queue is empty");
+       }
+       return elements.remove(0);
+   }
+
+   @Override
+   public Object peek() {
+       if (elements.isEmpty()) {
+           throw new IllegalStateException("Queue is empty");
+       }
+       return elements.get(0);
+   }
+
+   @Override
+   public int size() {
+       return elements.size();
+   }
+}
+
+with lasso and llm judge:
+
+import java.util.*;
+
+public class CircularListQueue implements Queue, Cloneable {
+   private CircularList list;
+
+   public CircularListQueue() {
+       this.list = new CircularList();
+   }
+
+   @Override
+   public void enqueue(Object obj) {
+       list.appendElement(obj);
+   }
+
+   @Override
+   public Object dequeue() {
+       Object out = list.getFirstElement();
+       list.removeFirstElement();
+       return out;
+   }
+
+   @Override
+   public Object peek() {
+       return list.getFirstElement();
+   }
+
+   @Override
+   public int size() {
+       return list.size();
+   }
+
+   @Override
+   protected Object clone() throws CloneNotSupportedException {
+       CircularListQueue clonedQueue = (CircularListQueue) super.clone();
+       clonedQueue.list = (CircularList) this.list.clone();
+       return clonedQueue;
+   }
+}
+
+17.
+
+def interfaceSpec = """Sha256 {
+    hash(byte[])->java.lang.String
+}"""
+
+
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testHash': sheet(base64:'Sha256', p2:'hello world'.getBytes()) {
+            row  '',    'create', '?base64'
+            row "b94d27b9934d3e08a52e52d7da7dabfac484efe37a5380ee9088f7ace2efcde9",  'hash',   'A1',     '?p2'
+        }
+]
+without:
+
+public interface Sha256 {
+   String hash(byte[] data);
+}
+
+class Sha256Impl implements Sha256 {
+   @Override
+   public String hash(byte[] data) {
+       java.security.MessageDigest sha256 = null;
+       try {
+           sha256 = java.security.MessageDigest.getInstance("SHA-256");
+       } catch (Exception e) {
+           throw new RuntimeException("Failed to get SHA-256 MessageDigest instance", e);
+       }
+       byte[] hashBytes = sha256.digest(data);
+       StringBuilder hexString = new StringBuilder();
+       for (byte b : hashBytes) {
+           String hex = Integer.toHexString(0xff & b);
+           if (hex.length() == 1) hexString.append('0');
+           hexString.append(hex);
+       }
+       return hexString.toString();
+   }
+}
+
+with lasso and with/without llm judge:
+
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+
+public class Sha256 implements definterfaceSpec.Sha256 {
+   @Override
+   public String hash(byte[] input) {
+       try {
+           MessageDigest digest = MessageDigest.getInstance("SHA-256");
+           byte[] encodedHash = digest.digest(input);
+           return bytesToHex(encodedHash);
+       } catch (NoSuchAlgorithmException e) {
+           throw new RuntimeException("SHA-256 algorithm not found", e);
+       }
+   }
+
+   private String bytesToHex(byte[] hash) {
+       StringBuilder hexString = new StringBuilder();
+       for (byte b : hash) {
+           String hex = Integer.toHexString(0xff & b);
+           if (hex.length() == 1) hexString.append('0');
+           hexString.append(hex);
+       }
+       return hexString.toString();
+   }
+}
+
+
+18.
+
+def interfaceSpec = """Stack {
+    push(java.lang.Object)->java.lang.Object
+    pop()->java.lang.Object
+    peek()->java.lang.Object
+    size()->int
+    isEmpty()->boolean}"""
+    
+    
+sequences = [
+        'pushPop': sheet(p1: 'Stack', p2: "hello", p3: "world") {
+            row '', 'create', '?p1'
+            row '?p2', 'push', 'A1', '?p2'
+            row '?p3', 'push', 'A1', '?p3'
+            row '?p3', 'peek', 'A1'
+            row 2, 'size', 'A1'
+            row false, 'isEmpty', 'A1'
+            row '?p3', 'pop', 'A1'
+            row 1, 'size', 'A1'
+            row '?p2', 'pop', 'A1'
+            row true, 'isEmpty', 'A1'
+        }
+]
+
+without:
+
+import java.util.ArrayList;
+import java.util.List;
+
+public interface Stack {
+   void push(Object element);
+   Object pop();
+   Object peek();
+   int size();
+   boolean isEmpty();
+}
+
+class ArrayStack implements Stack {
+   private List<Object> elements = new ArrayList<>();
+
+   @Override
+   public void push(Object element) {
+       elements.add(element);
+   }
+
+   @Override
+   public Object pop() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Stack is empty");
+       }
+       return elements.remove(elements.size() - 1);
+   }
+
+   @Override
+   public Object peek() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Stack is empty");
+       }
+       return elements.get(elements.size() - 1);
+   }
+
+   @Override
+   public int size() {
+       return elements.size();
+   }
+
+   @Override
+   public boolean isEmpty() {
+       return elements.isEmpty();
+   }
+}
+
+
+
+
+with Lasso and with/without LLM Judge:
+import java.util.ArrayList;
+import java.util.List;
+
+public interface Stack {
+   Object push(Object o);
+   Object pop();
+   Object peek();
+   int size();
+   boolean isEmpty();
+}
+
+public class ArrayStack implements Stack {
+   private List<Object> items = new ArrayList<>();
+
+   @Override
+   public Object push(Object o) {
+       items.add(o);
+       return o;
+   }
+
+   @Override
+   public Object pop() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Stack is empty");
+       }
+       return items.remove(items.size() - 1);
+   }
+
+   @Override
+   public Object peek() {
+       if (isEmpty()) {
+           throw new IllegalStateException("Stack is empty");
+       }
+       return items.get(items.size() - 1);
+   }
+
+   @Override
+   public int size() {
+       return items.size();
+   }
+
+   @Override
+   public boolean isEmpty() {
+       return items.isEmpty();
+   }
+}
+
+
+
+19.
+        
+def interfaceSpec = """Json {
+    toJson(java.util.Map)->java.lang.String}"""
+    
+    
+    
+    
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testToJson': sheet(p1: 'Json') {
+            row '', 'create', '?p1'
+            row '', 'create', 'java.util.HashMap'
+            row '', 'put', 'A2', 'name', 'Jane Doe'
+            row '{"name":"Jane Doe"}', 'toJson', 'A1', 'A2'
+        }
+]
+
+
+without:
+import java.util.Map;
+
+public interface Json {
+   String toJson(Map<String, Object> map);
+}
+
+class JsonImpl implements Json {
+   @Override
+   public String toJson(Map<String, Object> map) {
+       StringBuilder json = new StringBuilder("{");
+       for (Map.Entry<String, Object> entry : map.entrySet()) {
+           json.append("\"")
+                   .append(entry.getKey())
+                   .append("\":\"")
+                   .append(entry.getValue().toString())
+                   .append("\",");
+       }
+       if (map.size() > 0) {
+           json.deleteCharAt(json.length() - 1); // Remove the last comma
+       }
+       json.append("}");
+       return json.toString();
+   }
+}
+
+with lasso:
+package com.example;
+
+import java.util.Map;
+import java.util.HashMap;
+import org.json.JSONObject;
+
+public class JsonImpl implements Json {
+   @Override
+   public String toJson(Map<?, ?> map) {
+       JSONObject jsonObject = new JSONObject(map);
+       return jsonObject.toString();
+   }
+}
+
+        
+with lasso and llm judge:
+import java.util.Map;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import org.apache.commons.lang3.ObjectUtils;
+import java.util.Collections;
+import java.util.Optional;
+
+public class JsonUtil {
+
+   private JsonUtil() { }
+
+   public static <K, V> String toJson(Map<K, V> map) throws JsonProcessingException {
+       if (ObjectUtils.isEmpty(map)) {
+           map = Collections.emptyMap();
+       }
+       return ObjectMapperWrapper.objectMapper().writeValueAsString(map);
+   }
+
+   public static Optional<String> toJson(Object object) throws JsonProcessingException {
+       if (object == null) {
+           return Optional.empty();
+       }
+       return Optional.of(ObjectMapperWrapper.objectMapper().writeValueAsString(object));
+   }
+}
+
+20.
+        
+def interfaceSpec = """TreeNode{
+    setName(java.lang.String)->void
+    getName()->java.lang.String
+    addChild(TreeNode)->void
+    getChildren()->java.util.List
+}"""
+
+
+
+
+sequences = [
+        // parameterised sheet (SSN) with default input parameter values
+        // expected values are given in first row (oracle)
+        'testChildren': sheet(cut:'TreeNode', n1: 'nodeOne', n2: 'nodeTwo') {
+            row  '',    'create', '?cut'
+            row  '',    'setName', 'A1', '?n1'
+            row  '',    'create', '?cut'
+            row  '',    'setName', 'A3', '?n2'
+            row  '',    'addChild', 'A1', 'A3'
+            row  '',    'getChildren', 'A1'
+            row  1,    'size', 'A6'
+            row  '',    'getChildren', 'A3'
+            row  0,    'size', 'A8'
+            row  '?n1',    'getName', 'A1'
+            row  '?n2',    'getName', 'A3'
+        }
+]
+
+
+without:
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class TreeNodeImpl implements TreeNode {
+   private String name;
+   private List<TreeNode> children = new ArrayList<>();
+
+   @Override
+   public void setName(String name) {
+       this.name = name;
+   }
+
+   @Override
+   public String getName() {
+       return name;
+   }
+
+   @Override
+   public void addChild(TreeNode child) {
+       children.add(child);
+   }
+
+   @Override
+   public List<TreeNode> getChildren() {
+       return children;
+   }
+}
+
+
+with lasso and with/withoutllm judge:
+
+package org.axway.grapes.server.core.graphs;
+
+import java.util.ArrayList;
+import java.util.List;
+
+public class TreeNode {
+
+   private String name;
+   private List<TreeNode> children = new ArrayList<>();
+
+   public void setName(final String name) {
+       this.name = name;
+   }
+   public String getName() {
+       return name;
+   }
+
+   public void addChild(final TreeNode subTree) {
+       children.add(subTree);
+   }
+
+   public List<TreeNode> getChildren() {
+       return children;
+   }
+}
+
